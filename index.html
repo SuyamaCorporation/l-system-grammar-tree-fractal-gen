@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>L-System Grammar Tree & Plant Fractal Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col items-center p-4">
+  <h1 class="text-2xl font-bold mb-1 text-lime-300">L-System Grammar Tree & Plant Fractal Generator</h1>
+  <p class="text-gray-400 text-sm mb-4">Interactive L-system fractals with presets: Fern, Koch, Sierpinski, Binary Tree, Dragon Curve</p>
+
+  <div class="flex flex-col lg:flex-row gap-6 w-full max-w-6xl">
+    <div class="flex-1 flex justify-center">
+      <canvas id="canvas" width="620" height="600"
+        class="rounded-xl border border-lime-700 bg-black"
+        aria-label="L-system fractal canvas"></canvas>
+    </div>
+
+    <div class="lg:w-72 flex flex-col gap-3">
+      <!-- Presets -->
+      <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+        <h2 class="text-lime-400 font-semibold mb-2">Presets</h2>
+        <div class="grid grid-cols-1 gap-1">
+          <button class="preset-btn bg-gray-800 hover:bg-lime-900 border border-gray-600 text-left px-3 py-1.5 rounded text-sm transition"
+            data-preset="fern" aria-label="Load Fern preset">🌿 Fern</button>
+          <button class="preset-btn bg-gray-800 hover:bg-lime-900 border border-gray-600 text-left px-3 py-1.5 rounded text-sm transition"
+            data-preset="koch" aria-label="Load Koch Snowflake preset">❄ Koch Snowflake</button>
+          <button class="preset-btn bg-gray-800 hover:bg-lime-900 border border-gray-600 text-left px-3 py-1.5 rounded text-sm transition"
+            data-preset="sierpinski" aria-label="Load Sierpinski Triangle preset">△ Sierpinski Triangle</button>
+          <button class="preset-btn bg-gray-800 hover:bg-lime-900 border border-gray-600 text-left px-3 py-1.5 rounded text-sm transition"
+            data-preset="binary" aria-label="Load Binary Tree preset">🌲 Binary Tree</button>
+          <button class="preset-btn bg-gray-800 hover:bg-lime-900 border border-gray-600 text-left px-3 py-1.5 rounded text-sm transition"
+            data-preset="dragon" aria-label="Load Dragon Curve preset">🐉 Dragon Curve</button>
+        </div>
+      </div>
+
+      <!-- L-system params -->
+      <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+        <h2 class="text-lime-400 font-semibold mb-2">L-System</h2>
+
+        <label class="block text-xs text-gray-400 mb-0.5">Axiom</label>
+        <input id="axiomInput" type="text" value="X"
+          class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm font-mono mb-2"
+          aria-label="L-system axiom" />
+
+        <label class="block text-xs text-gray-400 mb-0.5">Rules (one per line, format: X=XYX)</label>
+        <textarea id="rulesInput" rows="3"
+          class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm font-mono mb-2"
+          aria-label="L-system production rules">X=F+[[X]-X]-F[-FX]+X
+F=FF</textarea>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs text-gray-400 mb-0.5">Angle (°)</label>
+            <input id="angleInput" type="number" value="25" min="1" max="180"
+              class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm"
+              aria-label="Turn angle in degrees" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-0.5">Segment Length</label>
+            <input id="segLenInput" type="number" value="6" min="1" max="50"
+              class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm"
+              aria-label="Segment draw length" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Depth and color -->
+      <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+        <label class="block text-sm mb-1">
+          Generation: <span id="depthVal" class="font-bold text-lime-300">5</span>
+        </label>
+        <input id="depthSlider" type="range" min="1" max="8" value="5"
+          class="w-full accent-lime-500" aria-label="L-system generation depth 1 to 8" />
+
+        <label class="block text-sm mt-3 mb-1">Color Mode:</label>
+        <div class="flex gap-3 text-xs">
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input type="radio" name="colorMode" value="gradient" checked class="accent-lime-500" />
+            Depth gradient
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input type="radio" name="colorMode" value="single" class="accent-lime-500" />
+            Single color
+          </label>
+        </div>
+        <div id="singleColorRow" class="mt-2 hidden">
+          <label class="text-xs text-gray-400">Color:</label>
+          <input id="colorPicker" type="color" value="#22c55e"
+            class="ml-2 w-8 h-6 rounded cursor-pointer" aria-label="Single line color" />
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="bg-gray-900 rounded-xl p-4 border border-gray-700 flex flex-col gap-2">
+        <button id="drawBtn"
+          class="w-full bg-lime-700 hover:bg-lime-600 text-white font-semibold py-2 rounded-lg transition"
+          aria-label="Draw fractal">
+          Draw
+        </button>
+        <button id="animBtn"
+          class="w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-2 rounded-lg transition"
+          aria-label="Toggle animated generation">
+          ▶ Animate Generation
+        </button>
+        <div class="text-xs text-gray-400">
+          String length: <span id="strLen">—</span> |
+          Segments: <span id="segCountEl">—</span>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="downloadPNG"
+          class="flex-1 bg-teal-700 hover:bg-teal-600 text-white font-semibold py-2 rounded-lg transition text-sm"
+          aria-label="Download as PNG">
+          ⬇ PNG
+        </button>
+        <button id="downloadSVG"
+          class="flex-1 bg-blue-700 hover:bg-blue-600 text-white font-semibold py-2 rounded-lg transition text-sm"
+          aria-label="Download as SVG">
+          ⬇ SVG
+        </button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const axiomInput = document.getElementById('axiomInput');
+  const rulesInput = document.getElementById('rulesInput');
+  const angleInput = document.getElementById('angleInput');
+  const segLenInput = document.getElementById('segLenInput');
+  const depthSlider = document.getElementById('depthSlider');
+  const depthVal = document.getElementById('depthVal');
+  const drawBtn = document.getElementById('drawBtn');
+  const animBtn = document.getElementById('animBtn');
+  const strLen = document.getElementById('strLen');
+  const segCountEl = document.getElementById('segCountEl');
+  const downloadPNG = document.getElementById('downloadPNG');
+  const downloadSVG = document.getElementById('downloadSVG');
+  const colorPicker = document.getElementById('colorPicker');
+  const singleColorRow = document.getElementById('singleColorRow');
+
+  let animating = false;
+  let animFrame = null;
+  let animGen = 0;
+
+  const PRESETS = {
+    fern: {
+      axiom: 'X',
+      rules: 'X=F+[[X]-X]-F[-FX]+X\nF=FF',
+      angle: 25, segLen: 5, depth: 5
+    },
+    koch: {
+      axiom: 'F--F--F',
+      rules: 'F=F+F--F+F',
+      angle: 60, segLen: 8, depth: 4
+    },
+    sierpinski: {
+      axiom: 'F-G-G',
+      rules: 'F=F-G+F+G-F\nG=GG',
+      angle: 120, segLen: 8, depth: 5
+    },
+    binary: {
+      axiom: '0',
+      rules: '0=1[0]0\n1=11',
+      angle: 45, segLen: 10, depth: 6
+    },
+    dragon: {
+      axiom: 'FX',
+      rules: 'X=X+YF+\nY=-FX-Y',
+      angle: 90, segLen: 8, depth: 10
+    }
+  };
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = PRESETS[btn.dataset.preset];
+      if (!p) return;
+      axiomInput.value = p.axiom;
+      rulesInput.value = p.rules;
+      angleInput.value = p.angle;
+      segLenInput.value = p.segLen;
+      depthSlider.value = p.depth;
+      depthVal.textContent = p.depth;
+      stopAnim();
+      drawFractal();
+    });
+  });
+
+  depthSlider.addEventListener('input', () => {
+    depthVal.textContent = depthSlider.value;
+  });
+
+  document.querySelectorAll('input[name="colorMode"]').forEach(r => {
+    r.addEventListener('change', () => {
+      singleColorRow.classList.toggle('hidden', r.value !== 'single' || !r.checked);
+      if (r.value === 'single' && r.checked) singleColorRow.classList.remove('hidden');
+      else if (r.value !== 'single') singleColorRow.classList.add('hidden');
+    });
+  });
+
+  function expandLSystem(axiom, rules, depth) {
+    let s = axiom;
+    for (let i = 0; i < depth; i++) {
+      let next = '';
+      for (const c of s) next += rules[c] || c;
+      s = next;
+      if (s.length > 200000) break; // safety cap
+    }
+    return s;
+  }
+
+  function parseRules(rulesText) {
+    const rules = {};
+    for (const line of rulesText.split('\n')) {
+      const m = line.match(/^\s*([A-Za-z0-9])\s*=\s*(.+)\s*$/);
+      if (m) rules[m[1]] = m[2].trim();
+    }
+    return rules;
+  }
+
+  function buildSegments(str, stepLen, angleDeg) {
+    const angleRad = angleDeg * Math.PI / 180;
+    let x = 0, y = 0, angle = -Math.PI / 2;
+    const stack = [];
+    const segments = [];
+    let depth = 0;
+
+    for (const c of str) {
+      if (c === 'F' || c === 'G' || c === '1' || c === '0') {
+        const nx = x + stepLen * Math.cos(angle);
+        const ny = y + stepLen * Math.sin(angle);
+        segments.push({ x1: x, y1: y, x2: nx, y2: ny, depth });
+        x = nx; y = ny;
+      } else if (c === 'f' || c === 'g') {
+        x += stepLen * Math.cos(angle);
+        y += stepLen * Math.sin(angle);
+      } else if (c === '+') {
+        angle += angleRad;
+      } else if (c === '-') {
+        angle -= angleRad;
+      } else if (c === '[') {
+        stack.push({ x, y, angle, depth });
+        depth++;
+      } else if (c === ']') {
+        const s = stack.pop();
+        if (s) { x = s.x; y = s.y; angle = s.angle; depth = s.depth; }
+      }
+    }
+    return segments;
+  }
+
+  function getDepthColor(depth, maxDepth) {
+    const t = maxDepth > 0 ? depth / maxDepth : 0;
+    // dark green → lime → yellow
+    const r = Math.round(t < 0.5 ? 30 : 30 + (220 - 30) * (t - 0.5) * 2);
+    const g = Math.round(60 + 160 * t);
+    const b = Math.round(20 + 30 * (1 - t));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  let lastSegments = [];
+  let lastMaxDepth = 0;
+  let svgData = '';
+
+  function drawFractal(drawCount) {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#020a02';
+    ctx.fillRect(0, 0, W, H);
+
+    const axiom = axiomInput.value;
+    const rules = parseRules(rulesInput.value);
+    const depth = parseInt(depthSlider.value);
+    const angleDeg = parseFloat(angleInput.value) || 25;
+    const segLen = parseFloat(segLenInput.value) || 6;
+
+    let segs;
+    if (drawCount === undefined || lastSegments.length === 0) {
+      const str = expandLSystem(axiom, rules, depth);
+      strLen.textContent = str.length.toLocaleString();
+      segs = buildSegments(str, segLen, angleDeg);
+      lastSegments = segs;
+    } else {
+      segs = lastSegments;
+    }
+
+    const count = drawCount !== undefined ? Math.min(drawCount, segs.length) : segs.length;
+    segCountEl.textContent = count + (count < segs.length ? ` / ${segs.length}` : '');
+
+    if (segs.length === 0) return;
+
+    // Auto-fit
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const s of segs) {
+      minX = Math.min(minX, s.x1, s.x2);
+      minY = Math.min(minY, s.y1, s.y2);
+      maxX = Math.max(maxX, s.x1, s.x2);
+      maxY = Math.max(maxY, s.y1, s.y2);
+    }
+    const pad = 30;
+    const scaleX = (W - pad * 2) / (maxX - minX || 1);
+    const scaleY = (H - pad * 2) / (maxY - minY || 1);
+    const scale = Math.min(scaleX, scaleY, 5);
+    const offX = (W - (maxX - minX) * scale) / 2 - minX * scale;
+    const offY = (H - (maxY - minY) * scale) / 2 - minY * scale;
+
+    const maxD = segs.reduce((m, s) => Math.max(m, s.depth), 0);
+    lastMaxDepth = maxD;
+    const colorMode = document.querySelector('input[name="colorMode"]:checked').value;
+    const singleColor = colorPicker.value;
+
+    ctx.lineWidth = Math.max(0.4, 1.5 / Math.sqrt(segs.length / 100 + 1));
+    ctx.lineCap = 'round';
+
+    // SVG data collection
+    svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" style="background:#020a02">`;
+
+    for (let i = 0; i < count; i++) {
+      const s = segs[i];
+      let color;
+      if (colorMode === 'single') {
+        color = singleColor;
+      } else {
+        color = getDepthColor(s.depth, maxD);
+      }
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(s.x1 * scale + offX, s.y1 * scale + offY);
+      ctx.lineTo(s.x2 * scale + offX, s.y2 * scale + offY);
+      ctx.stroke();
+      if (i < 5000) { // limit SVG size
+        svgData += `<line x1="${(s.x1*scale+offX).toFixed(1)}" y1="${(s.y1*scale+offY).toFixed(1)}" x2="${(s.x2*scale+offX).toFixed(1)}" y2="${(s.y2*scale+offY).toFixed(1)}" stroke="${color}" stroke-width="1" stroke-linecap="round"/>`;
+      }
+    }
+    svgData += '</svg>';
+  }
+
+  drawBtn.addEventListener('click', () => {
+    stopAnim();
+    lastSegments = [];
+    drawFractal();
+  });
+
+  function stopAnim() {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    animating = false;
+    animBtn.textContent = '▶ Animate Generation';
+  }
+
+  animBtn.addEventListener('click', () => {
+    if (animating) { stopAnim(); return; }
+    animating = true;
+    animBtn.textContent = '⏹ Stop';
+    lastSegments = [];
+    const axiom = axiomInput.value;
+    const rules = parseRules(rulesInput.value);
+    const depth = parseInt(depthSlider.value);
+    const angleDeg = parseFloat(angleInput.value) || 25;
+    const segLen = parseFloat(segLenInput.value) || 6;
+    const str = expandLSystem(axiom, rules, depth);
+    strLen.textContent = str.length.toLocaleString();
+    const segs = buildSegments(str, segLen, angleDeg);
+    lastSegments = segs;
+
+    let drawn = 0;
+    const step = Math.max(1, Math.floor(segs.length / 300));
+
+    function frame() {
+      if (!animating) return;
+      drawn = Math.min(drawn + step, segs.length);
+      drawFractal(drawn);
+      if (drawn < segs.length) {
+        animFrame = requestAnimationFrame(frame);
+      } else {
+        stopAnim();
+      }
+    }
+    animFrame = requestAnimationFrame(frame);
+  });
+
+  colorPicker.addEventListener('input', () => {
+    if (lastSegments.length > 0) drawFractal();
+  });
+
+  downloadPNG.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'l-system-fractal.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  downloadSVG.addEventListener('click', () => {
+    if (!svgData) { alert('Draw first'); return; }
+    const blob = new Blob([svgData], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = 'l-system-fractal.svg';
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Load fern by default
+  const p = PRESETS.fern;
+  axiomInput.value = p.axiom;
+  rulesInput.value = p.rules;
+  angleInput.value = p.angle;
+  segLenInput.value = p.segLen;
+  depthSlider.value = p.depth;
+  depthVal.textContent = p.depth;
+  drawFractal();
+})();
+</script>
+</body>
+</html>
